@@ -27,7 +27,7 @@ pipeline {
          when { expression {  params.action == 'create' } }
             steps{
                script{
-                   
+                  sh 'cd spring-boot-app' 
                    mvnTest()
                }
             }
@@ -36,6 +36,7 @@ pipeline {
          when { expression {  params.action == 'create' } }
             steps{
                script{ 
+                sh 'cd spring-boot-app'
                    mvnIntegrationTest()
                }
             }
