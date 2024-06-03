@@ -1,0 +1,194 @@
+@Library('my-shared-library') _
+pipeline {
+  agent {
+    docker {
+      image 'shivisis/maven-docker-agent:v1'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
+    }
+  }
+
+ parameters{
+
+        choice(name: 'action', choices: 'create\ndelete', description: 'Choose create/Destroy')
+        string(name: 'ImageName', description: "name of the docker build", defaultValue: 'ultimate-cicd')
+        
+    }
+    environment{
+
+        ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
+        SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
+        AWS_CRED = credentials('aws-auth')
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+        SONAR_URL = "http://18.206.198.182:9000"
+    }
+  stages {
+    stage('Checkout') {
+    when { expression {  params.action == 'create' } }  
+      steps {
+       gitCheckout(
+                branch: "master",
+                url: "https://github.com/shivalikasisodia/java-maven-sonar-argocd-helm-k8s.git"
+            )
+      }
+    }
+         stage('Unit Test maven'){
+         when { expression {  params.action == 'create' } }
+            steps{
+               script{
+                   
+                   mvnTest()
+               }
+            }
+        }
+         stage('Integration Test maven'){
+         when { expression {  params.action == 'create' } }
+            steps{
+               script{ 
+                   mvnIntegrationTest()
+               }
+            }
+        }
+    stage('Static Code Analysis') {
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+          sh 'cd spring-boot-app && mvn clean package sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+        }
+      }
+    }
+    stage('Maven Build') {
+      steps {
+        script{
+          // build the project and create a JAR file
+        sh 'cd spring-boot-app'
+        mavenBuild()
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+                script{ 
+                  sh 'cd spring-boot-app'
+                  dockerBuild("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               }
+            
+        }
+      }
+    stage('Docker Image Scan: trivy '){
+         when { expression {  params.action == 'create' } }
+            steps{
+               script{
+                   
+                   dockerImageScan("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               }
+            }
+        }
+         stage('Docker Image Push : DockerHub '){
+         when { expression {  params.action == 'create' } }
+            steps{
+               script{
+                   
+                   dockerImagePush("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               }
+            }
+        }   
+         stage('Docker Image Cleanup : DockerHub '){
+         when { expression {  params.action == 'create' } }
+            steps{
+               script{
+                   
+                   dockerImageCleanup("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               }
+            }
+        } 
+
+    stage('Update Deployment File') {
+        environment {
+            GIT_REPO_NAME = "CI-using-Jenkins-shared-libraries"
+            GIT_USER_NAME = "shivalikasisodia"
+        }
+        steps {
+            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    git config user.email "shivalikasisodia13@gmail.com"
+                    git config user.name "shivalika sisodia"
+                    BUILD_NUMBER=${BUILD_NUMBER}
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" spring-boot-app-manifests/deployment.yml
+                    git add spring-boot-app-manifests/deployment.yml
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+                '''
+            }
+        }
+    }
+
+    stage('AWS Configure'){
+         when { expression {  params.action == 'create' } }
+            steps{   
+                withCredentials([[
+                  $class: 'AmazonWebServicesCredentialsBinding',
+                  credentialsId: 'aws-auth',
+                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh "aws ec2 describe-instances --region ${params.Region}"
+                  }
+            }
+       }   
+         stage('Create EKS Cluster : Terraform'){
+            when { expression {  params.action == 'create' } }
+            steps{
+                script{
+
+                    dir('eks_module') {
+                      sh """
+                          
+                          terraform init 
+                          terraform plan -var 'access_key=$ACCESS_KEY' -var 'secret_key=$SECRET_KEY' -var 'region=${params.Region}' --var-file=./config/terraform.tfvars
+                          terraform apply -var 'access_key=$ACCESS_KEY' -var 'secret_key=$SECRET_KEY' -var 'region=${params.Region}' --var-file=./config/terraform.tfvars --auto-approve
+                      """
+                  }
+                }
+            }
+        }
+        stage('Connect to EKS '){
+            when { expression {  params.action == 'create' } }
+        steps{
+
+            script{
+
+                sh """
+                aws configure set aws_access_key_id "$ACCESS_KEY"
+                aws configure set aws_secret_access_key "$SECRET_KEY"
+                aws configure set region "${params.Region}"
+                aws eks --region ${params.Region} update-kubeconfig --name ${params.cluster}
+                """
+            }
+        }
+        } 
+        stage('Deployment on EKS Cluster'){
+            when { expression {  params.action == 'create' } }
+            steps{
+                script{
+                  
+                  def apply = false
+
+                  try{
+                    input message: 'please confirm to deploy on eks', ok: 'Ready to apply the config ?'
+                    apply = true
+                  }catch(err){
+                    apply= false
+                    currentBuild.result  = 'UNSTABLE'
+                  }
+                  if(apply){
+
+                    sh """
+                      kubectl apply -f .
+                    """
+                  }
+                }
+            }
+        }    
+    }
+}     
+  
