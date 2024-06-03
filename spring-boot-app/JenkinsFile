@@ -11,6 +11,7 @@ pipeline {
 
         choice(name: 'action', choices: 'create\ndelete', description: 'Choose create/Destroy')
         string(name: 'ImageName', description: "name of the docker build", defaultValue: 'ultimate-cicd')
+        string(name: 'dir', description: "directory to switch to", defaultValue: 'cd spring-boot-app')
         
     }
   stages {
@@ -27,8 +28,11 @@ pipeline {
          when { expression {  params.action == 'create' } }
             steps{
                script{
-                  sh 'cd spring-boot-app' 
-                   mvnTest()
+                dir('spring-boot-app'){
+                  mvnTest()
+                }
+                 
+                 
                }
             }
         }
@@ -36,11 +40,14 @@ pipeline {
          when { expression {  params.action == 'create' } }
             steps{
                script{ 
-                sh 'cd spring-boot-app'
-                   mvnIntegrationTest()
+                 dir('spring-boot-app'){
+               
+                   mvnIntegrationTest("${params.dir}")
                }
             }
-        }
+            }
+         }
+
     stage('Static Code Analysis') {
     when { expression {  params.action == 'create' } }  
         environment{
@@ -49,18 +56,20 @@ pipeline {
 
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh 'cd spring-boot-app && mvn clean package sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+          sh 'cd "${params.dir}" && mvn clean package sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
         }
       }
     }
     stage('Maven Build') {
     when { expression {  params.action == 'create' } }  
+   
 
       steps {
         script{
           // build the project and create a JAR file
-        sh 'cd spring-boot-app'
+       dir('spring-boot-app'){
         mavenBuild()
+       }
         }
       }
     }
@@ -74,10 +83,10 @@ pipeline {
 
       steps {
                 script{ 
-                  sh 'cd spring-boot-app'
+                  dir('spring-boot-app'){
                   dockerBuild("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
                }
-            
+                }
         }
       }
     stage('Docker Image Scan: trivy '){
@@ -89,8 +98,9 @@ pipeline {
          
             steps{
                script{
-                   
-                   dockerImageScan("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               
+                   dockerImageScan("$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+               
                }
             }
         }
