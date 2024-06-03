@@ -19,7 +19,7 @@ pipeline {
       steps {
        gitCheckout(
                 branch: "master",
-                url: "https://github.com/shivalikasisodia/java-maven-sonar-argocd-helm-k8s.git"
+                url: "https://github.com/shivalikasisodia/CI-using-Jenkins-shared-libraries.git"
             )
       }
     }
