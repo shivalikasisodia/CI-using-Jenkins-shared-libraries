@@ -96,44 +96,54 @@ pipeline {
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
+      
     }
-         
-            steps{
-               script{
-               
-                   dockerImageScan("$IMAGE_TAG","$REGISTRY_CREDENTIALS")
-               
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
+        
+                  dir('spring-boot-app'){
+               script{ 
+                  dockerImageScan("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
                }
-            }
+                 
+               }
+                }
         }
+       }
     stage('Docker Image Push : DockerHub '){
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
+        
     }
-         
-            steps{
-               script{
-                   
-                   dockerImagePush("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
+        
+                  dir('spring-boot-app'){
+               script{ 
+                  dockerImagePush("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
+               }
                }
             }
         }   
+    }
          stage('Docker Image Cleanup : DockerHub '){
          when { expression {  params.action == 'create' } }
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
+       
     }
-            steps{
-               script{
-                   
-                   dockerImageCleanup("${params.ImageName}","$IMAGE_TAG","$REGISTRY_CREDENTIALS")
+           steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
+        
+                  dir('spring-boot-app'){
+               script{ 
+                  dockerImageCleanup("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
+               }
                }
             }
         } 
+         }
 
     stage('Update Deployment File') {
     when { expression {  params.action == 'create' } }  
