@@ -11,6 +11,7 @@ pipeline {
 
         choice(name: 'action', choices: 'create\ndelete', description: 'Choose create/Destroy')
         string(name: 'ImageName', description: "name of the docker build", defaultValue: 'ultimate-cicd')
+        string(name: 'DockerHubUser', description: "name of the Application", defaultValue: 'shivisis')
 
     }
   stages {
@@ -77,74 +78,58 @@ pipeline {
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        REGISTRY_URL = "https://index.docker.io/v1/"
     }
-
       steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
-        
-                  dir('spring-boot-app'){
+        script{ 
+          dir('spring-boot-app'){
                script{ 
-                  sh ' docker login $REGISTRY_URL -u $dockeruser -p $dockerpassword'
-                  dockerBuild("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
-               }
-                 
-               }
+                  
+                  dockerBuild("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
+               }    
                 }
-        }
+        }}
       }
     stage('Docker Image Scan: trivy '){
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-      
     }
-    steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
-        
-                  dir('spring-boot-app'){
+    steps {   
                script{ 
-                  dockerImageScan("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
+                  dockerImageScan("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
                }
                  
                }
                 }
-        }
-       }
+        
+       
     stage('Docker Image Push : DockerHub '){
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        
     }
     steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
-        
-                  dir('spring-boot-app'){
-               script{ 
-                  dockerImagePush("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
-               }
-               }
+       script{
+        dockerImagePush("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
+       }
             }
         }   
-    }
+    
          stage('Docker Image Cleanup : DockerHub '){
          when { expression {  params.action == 'create' } }
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
        
     }
-           steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'dockeruser')]) {
-        
-                  dir('spring-boot-app'){
+    steps{
                script{ 
-                  dockerImageCleanup("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
+                  dockerImageCleanup("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
                }
                }
-            }
-        } 
          }
+            
+    
+         
 
     stage('Update Deployment File') {
     when { expression {  params.action == 'create' } }  
