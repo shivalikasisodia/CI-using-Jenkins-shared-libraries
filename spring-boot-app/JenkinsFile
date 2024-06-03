@@ -13,14 +13,6 @@ pipeline {
         string(name: 'ImageName', description: "name of the docker build", defaultValue: 'ultimate-cicd')
         
     }
-    environment{
-
-        ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
-        SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-        SONAR_URL = "http://18.206.198.182:9000"
-    }
   stages {
     stage('Checkout') {
     when { expression {  params.action == 'create' } }  
@@ -50,6 +42,9 @@ pipeline {
         }
     stage('Static Code Analysis') {
     when { expression {  params.action == 'create' } }  
+        environment{
+          SONAR_URL = "http://18.206.198.182:9000"
+        }
 
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
@@ -71,6 +66,10 @@ pipeline {
 
     stage('Build Docker Image') {
     when { expression {  params.action == 'create' } }  
+    environment{
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
 
       steps {
                 script{ 
@@ -82,7 +81,10 @@ pipeline {
       }
     stage('Docker Image Scan: trivy '){
     when { expression {  params.action == 'create' } }  
-
+    environment{
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
          
             steps{
                script{
@@ -93,7 +95,10 @@ pipeline {
         }
     stage('Docker Image Push : DockerHub '){
     when { expression {  params.action == 'create' } }  
-
+    environment{
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
          
             steps{
                script{
@@ -104,6 +109,10 @@ pipeline {
         }   
          stage('Docker Image Cleanup : DockerHub '){
          when { expression {  params.action == 'create' } }
+    environment{
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
             steps{
                script{
                    
@@ -136,7 +145,11 @@ pipeline {
 
     stage('AWS Configure'){
          when { expression {  params.action == 'create' } }
-            steps{   
+         environment{
+            ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
+            SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
+        }
+        steps{   
                 withCredentials([[
                   $class: 'AmazonWebServicesCredentialsBinding',
                   credentialsId: 'aws-auth',
@@ -148,6 +161,10 @@ pipeline {
        }   
          stage('Create EKS Cluster : Terraform'){
             when { expression {  params.action == 'create' } }
+            environment{
+                ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
+                SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
+        }
             steps{
                 script{
 
@@ -164,6 +181,10 @@ pipeline {
         }
         stage('Connect to EKS '){
             when { expression {  params.action == 'create' } }
+            environment{
+                ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
+                SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
+        }
         steps{
 
             script{
