@@ -17,7 +17,6 @@ pipeline {
 
         ACCESS_KEY = credentials('AWS_ACCESS_KEY_ID')
         SECRET_KEY = credentials('AWS_SECRET_KEY_ID')
-        AWS_CRED = credentials('aws-auth')
         IMAGE_TAG = "${BUILD_NUMBER}"
         REGISTRY_CREDENTIALS = credentials('docker-cred')
         SONAR_URL = "http://18.206.198.182:9000"
@@ -50,6 +49,8 @@ pipeline {
             }
         }
     stage('Static Code Analysis') {
+    when { expression {  params.action == 'create' } }  
+
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
           sh 'cd spring-boot-app && mvn clean package sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
@@ -57,6 +58,8 @@ pipeline {
       }
     }
     stage('Maven Build') {
+    when { expression {  params.action == 'create' } }  
+
       steps {
         script{
           // build the project and create a JAR file
@@ -67,6 +70,8 @@ pipeline {
     }
 
     stage('Build Docker Image') {
+    when { expression {  params.action == 'create' } }  
+
       steps {
                 script{ 
                   sh 'cd spring-boot-app'
@@ -76,7 +81,9 @@ pipeline {
         }
       }
     stage('Docker Image Scan: trivy '){
-         when { expression {  params.action == 'create' } }
+    when { expression {  params.action == 'create' } }  
+
+         
             steps{
                script{
                    
@@ -84,8 +91,10 @@ pipeline {
                }
             }
         }
-         stage('Docker Image Push : DockerHub '){
-         when { expression {  params.action == 'create' } }
+    stage('Docker Image Push : DockerHub '){
+    when { expression {  params.action == 'create' } }  
+
+         
             steps{
                script{
                    
@@ -104,6 +113,8 @@ pipeline {
         } 
 
     stage('Update Deployment File') {
+    when { expression {  params.action == 'create' } }  
+    
         environment {
             GIT_REPO_NAME = "CI-using-Jenkins-shared-libraries"
             GIT_USER_NAME = "shivalikasisodia"
