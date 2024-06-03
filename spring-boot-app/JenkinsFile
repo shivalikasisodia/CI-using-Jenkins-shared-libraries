@@ -40,7 +40,7 @@ pipeline {
                script{ 
                  dir('spring-boot-app'){
                
-                   mvnIntegrationTest("${params.dir}")
+                   mvnIntegrationTest()
                }
             }
             }
