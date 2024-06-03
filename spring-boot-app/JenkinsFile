@@ -83,7 +83,9 @@ pipeline {
       steps {
                 script{ 
                   dir('spring-boot-app'){
-                  dockerBuild("${params.ImageName}","$IMAGE_TAG","${$REGISTRY_CREDENTIALS}")
+                  sh"""
+                   docker build . -t $REGISTRY_CREDENTIALS/${params.ImageName}:$IMAGE_TAG
+                  """
                }
                 }
         }
