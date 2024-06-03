@@ -81,12 +81,13 @@ pipeline {
     }
 
       steps {
-        withCredentials([usernameColonPassword(credentialsId: 'docker-cred', variable: 'docker-login-creds')]) {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
         
                   dir('spring-boot-app'){
-                  sh"""
-                   docker build . -t ${docker-login-creds}/${params.ImageName}:$IMAGE_TAG
-                  """
+               script{ 
+                  dockerBuild("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
+               }
+                 
                }
                 }
         }
