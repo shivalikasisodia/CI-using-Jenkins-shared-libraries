@@ -11,8 +11,6 @@ pipeline {
 
         choice(name: 'action', choices: 'create\ndelete', description: 'Choose create/Destroy')
         string(name: 'ImageName', description: "name of the docker build", defaultValue: 'ultimate-cicd')
-        string(name: 'dir', description: "directory to switch to", defaultValue: 'cd spring-boot-app')
-        
     }
   stages {
     stage('Checkout') {
