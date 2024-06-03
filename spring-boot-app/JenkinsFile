@@ -77,7 +77,7 @@ pipeline {
     when { expression {  params.action == 'create' } }  
     environment{
         IMAGE_TAG = "${BUILD_NUMBER}"
-        
+        REGISTRY_URL = "https://index.docker.io/v1/"
     }
 
       steps {
@@ -85,6 +85,7 @@ pipeline {
         
                   dir('spring-boot-app'){
                script{ 
+                  sh ' docker login $REGISTRY_URL -u $dockeruser -p $dockerpassword'
                   dockerBuild("${params.ImageName}","$IMAGE_TAG","${dockeruser}")
                }
                  
