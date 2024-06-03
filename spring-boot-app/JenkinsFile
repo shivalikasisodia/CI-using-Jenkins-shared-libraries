@@ -134,7 +134,7 @@ pipeline {
        
     }
            steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'dockerpassword', usernameVariable: 'dockeruser')]) {
+        withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'dockeruser')]) {
         
                   dir('spring-boot-app'){
                script{ 
