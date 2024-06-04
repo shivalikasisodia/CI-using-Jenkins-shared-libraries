@@ -92,18 +92,18 @@ pipeline {
                 }
         }}
       }
-    stage('Docker Image Scan: trivy '){
-    when { expression {  params.action == 'create' } }  
-    environment{
-        IMAGE_TAG = "${BUILD_NUMBER}"
-    }
-    steps {   
-               script{ 
-                  dockerImageScan("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
-               }
+    // stage('Docker Image Scan: trivy '){
+    // when { expression {  params.action == 'create' } }  
+    // environment{
+    //     IMAGE_TAG = "${BUILD_NUMBER}"
+    // }
+    // steps {   
+    //            script{ 
+    //               dockerImageScan("${params.ImageName}","$IMAGE_TAG","${params.DockerHubUser}")
+    //            }
                  
-               }
-                }
+    //            }
+    //             }
         
        
     stage('Docker Image Push : DockerHub '){
